@@ -1,13 +1,15 @@
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, session
 import sqlite3
 import os
 from dotenv import load_dotenv
 import bcrypt
 import pyotp
+from flask_cors import CORS
 
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+CORS(app, supports_credentials=True, origins=["https://login-kntz-api.netlify.app"])
 
 def conectar_banco():
     db_path = os.path.join(os.getcwd(), 'users.db')
@@ -15,68 +17,38 @@ def conectar_banco():
     conn.row_factory = sqlite3.Row
     return conn, conn.cursor()
 
-@app.route('/admin/login', methods=['GET', 'POST'])
+@app.route('/admin/login', methods=['POST'])
 def admin_login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        two_factor_code = request.form['two_factor_code']
-        conn, cursor = conectar_banco()
-        cursor.execute('SELECT password, two_factor_secret FROM admins WHERE username = ?', (username,))
-        admin = cursor.fetchone()
-        conn.close()
+    username = request.form['username']
+    password = request.form['password']
+    two_factor_code = request.form['two_factor_code']
+    conn, cursor = conectar_banco()
+    cursor.execute('SELECT password, two_factor_secret FROM admins WHERE username = ?', (username,))
+    admin = cursor.fetchone()
+    conn.close()
+    
+    if not admin:
+        return jsonify({'error': 'Credenciais inválidas.'}), 401
+    
+    if not bcrypt.checkpw(password.encode('utf-8'), admin['password'].encode('utf-8')):
+        return jsonify({'error': 'Credenciais inválidas.'}), 401
+    
+    if admin['two_factor_secret']:
+        if username == 'Project Kntz' and two_factor_code == 'Bruh':
+            session['admin_logged_in'] = True
+            return jsonify({'message': 'Login bem-sucedido!'}), 200
         
-        if not admin:
-            return render_template('admin_login.html', error='Credenciais inválidas.')
-        
-        # Verifica a senha
-        if not bcrypt.checkpw(password.encode('utf-8'), admin['password'].encode('utf-8')):
-            return render_template('admin_login.html', error='Credenciais inválidas.')
-        
-        # Verifica o código 2FA, se o segredo existir
-        if admin['two_factor_secret']:
-            # Fallback para teste: aceita "Bruh" para o admin padrão
-            if username == 'Project Kntz' and two_factor_code == 'Bruh':
-                session['admin_logged_in'] = True
-                return redirect(url_for('gerenciar_usuarios'))
-            
-            # Verificação TOTP normal
-            totp = pyotp.TOTP(admin['two_factor_secret'])
-            if not totp.verify(two_factor_code):
-                return render_template('admin_login.html', error='Código 2FA inválido.')
-        
-        session['admin_logged_in'] = True
-        return redirect(url_for('gerenciar_usuarios'))
-    return render_template('admin_login.html')
+        totp = pyotp.TOTP(admin['two_factor_secret'])
+        if not totp.verify(two_factor_code):
+            return jsonify({'error': 'Código 2FA inválido.'}), 401
+    
+    session['admin_logged_in'] = True
+    return jsonify({'message': 'Login bem-sucedido!'}), 200
 
-@app.route('/admin/logout')
+@app.route('/admin/logout', methods=['GET'])
 def admin_logout():
     session.pop('admin_logged_in', None)
-    return redirect(url_for('admin_login'))
-
-@app.route('/')
-def home():
-    if not session.get('admin_logged_in'):
-        return redirect(url_for('admin_login'))
-    return redirect(url_for('gerenciar_usuarios'))
-
-@app.route('/gerenciar-usuarios')
-def gerenciar_usuarios():
-    if not session.get('admin_logged_in'):
-        return redirect(url_for('admin_login'))
-    return render_template('gerenciar_usuarios.html')
-
-@app.route('/criar-usuario')
-def criar_usuario_page():
-    if not session.get('admin_logged_in'):
-        return redirect(url_for('admin_login'))
-    return render_template('criar_usuario.html')
-
-@app.route('/configuracoes')
-def configuracoes():
-    if not session.get('admin_logged_in'):
-        return redirect(url_for('admin_login'))
-    return render_template('configuracoes.html')
+    return jsonify({'message': 'Logout bem-sucedido!'}), 200
 
 @app.route('/api/system-status', methods=['GET', 'POST'])
 def system_status():
@@ -93,7 +65,6 @@ def system_status():
     cursor.execute("SELECT value FROM system_settings WHERE key = 'system_status'")
     result = cursor.fetchone()
     status = result['value'] if result else 'offline'
-    conn.close()
 
     if not session.get('admin_logged_in'):
         return jsonify({'status': 'erro', 'mensagem': 'Acesso não autorizado'}), 401
@@ -104,12 +75,12 @@ def system_status():
         if new_status not in ['online', 'offline']:
             return jsonify({'message': 'Status inválido.'}), 400
         
-        conn, cursor = conectar_banco()
         cursor.execute("UPDATE system_settings SET value = ? WHERE key = 'system_status'", (new_status,))
         conn.commit()
         conn.close()
         return jsonify({'message': f'Sistema definido como {new_status.upper()}.'}), 200
     
+    conn.close()
     return jsonify({'status': status}), 200
 
 @app.route('/users', methods=['GET'])
@@ -213,7 +184,3 @@ def api_login():
 
     conn.close()
     return jsonify({'status': 'sucesso', 'mensagem': 'Login bem-sucedido!'}), 200
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
