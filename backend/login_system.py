@@ -11,7 +11,7 @@ init(autoreset=True)
 # Chave de verificação (alinhada com app.py)
 CHAVE_VERIFICACAO = "em-uma-noite-escura-as-corujas-observam-42"
 # URL do servidor (substitua pelo IP da sua rede local, se necessário)
-CRAFT_URL = "http://127.0.0.1:5000"
+CRAFT_URL = "https://login-kntz-api.netlify.app/"
 
 class Cores:
     BRIGHT, RESET = Style.BRIGHT, Style.RESET_ALL
