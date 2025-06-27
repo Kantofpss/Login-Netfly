@@ -126,7 +126,7 @@
         }
         async function fetchSystemStatus() {
             try {
-                const response = await fetch('https://your-backend-url.com/api/system-status');
+                const response = await fetch('https://login-kntz-api.netlify.app/api/system-status');
                 const data = await response.json();
                 if (response.ok) {
                     document.getElementById('system-status').textContent = data.status;
@@ -141,7 +141,7 @@
             const currentStatus = document.getElementById('system-status').textContent;
             const newStatus = currentStatus === 'online' ? 'offline' : 'online';
             try {
-                const response = await fetch('https://your-backend-url.com/api/system-status', {
+                const response = await fetch('https://login-kntz-api.netlify.app/api/system-status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: newStatus })

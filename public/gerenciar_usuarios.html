@@ -1,43 +1,4 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -63,7 +24,7 @@
         }
         nav a {
             color: #fff;
-            margin: 15px;
+            margin: 0 15px;
             text-decoration: none;
             font-weight: bold;
         }
@@ -153,7 +114,7 @@
         }
         async function fetchUsers(query = '') {
             try {
-                const url = query ? `https://your-backend-url.com/users/search?query=${encodeURIComponent(query)}` : 'https://your-backend-url.com/users';
+                const url = query ? `https://login-kntz-api.netlify.app/users/search?query=${encodeURIComponent(query)}` : 'https://your-render-app.onrender.com/users';
                 const response = await fetch(url);
                 const users = await response.json();
                 if (response.ok) {
@@ -179,7 +140,7 @@
         }
         async function resetHwid(userId) {
             try {
-                const response = await fetch(`https://your-backend-url.com/users/reset_hwid/${userId}`, {
+                const response = await fetch(`https://login-kntz-api.netlify.app/users/reset_hwid/${userId}`, {
                     method: 'POST'
                 });
                 const data = await response.json();
@@ -196,7 +157,7 @@
         async function deleteUser(userId) {
             if (confirm('Tem certeza que deseja excluir este usuário?')) {
                 try {
-                    const response = await fetch(`https://your-backend-url.com/admin/users/delete/${userId}`, {
+                    const response = await fetch(`https://login-kntz-api.netlify.app/admin/users/delete/${userId}`, {
                         method: 'DELETE'
                     });
                     const data = await response.json();
